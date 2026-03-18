@@ -3,7 +3,7 @@ Theme Name: Flatsome Child
 Description: This is a child theme for Flatsome Theme
 Author: UX Themes
 Template: flatsome
-Version: 3.2
+Version: 3.3
 */
 
 /*************** ADD CUSTOM CSS HERE.   ***************/
@@ -11,6 +11,11 @@ Version: 3.2
 /* Приховати категорії на картці товару ТІЛЬКИ на головній сторінці */
 .home .product-category {
     display: none !important;
+}
+
+/* Вирівняти ціну по нижньому краю — однакова висота назви товару */
+.home .name.product-title {
+    min-height: 72px;
 }
 
 
