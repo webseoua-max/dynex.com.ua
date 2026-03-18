@@ -778,10 +778,21 @@ a.scroll-top.active {
 display: block;
 }
 /* Dynex sorting dropdown */
+.shop-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.shop-container .products.row {
+    width: 100%;
+}
+
 .dynex-sort-wrapper {
     position: relative;
     display: inline-block;
     margin-left: auto;
+    margin-bottom: 15px;
     z-index: 100;
 }
 
