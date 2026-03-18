@@ -3,16 +3,13 @@ Theme Name: Flatsome Child
 Description: This is a child theme for Flatsome Theme
 Author: UX Themes
 Template: flatsome
-Version: 3.1
+Version: 3.2
 */
 
 /*************** ADD CUSTOM CSS HERE.   ***************/
 
-/* Приховати категорії на картці товару в loop */
-.product-cat-list,
-.woocommerce-loop-product__categories,
-.wc-block-grid__product-categories,
-.product_meta .posted_in {
+/* Приховати категорії на картці товару ТІЛЬКИ на головній сторінці */
+.home .product-category {
     display: none !important;
 }
 
