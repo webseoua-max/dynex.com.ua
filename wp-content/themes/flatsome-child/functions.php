@@ -512,3 +512,71 @@ function dynex_convert_variation_price( $price, $variation, $product ) {
     $rate = dynex_get_rate_for_product( $product->get_id() );
     return round( floatval( $price ) * $rate, 2 );
 }
+
+// Custom sorting dropdown
+add_action( 'woocommerce_before_shop_loop', 'dynex_custom_sorting_dropdown', 15 );
+function dynex_custom_sorting_dropdown() {
+    if ( ! is_shop() && ! is_product_category() && ! is_product_tag() ) return;
+
+    $current = isset( $_GET['dynex_sort'] ) ? sanitize_text_field( $_GET['dynex_sort'] ) : '';
+
+    $options = [
+        ''            => 'Сортування',
+        'price_desc'  => 'Від дорогих до дешевих',
+        'price_asc'   => 'Від дешевих до дорогих',
+        'sale'        => 'Акційні',
+        'date'        => 'Нові товари',
+    ];
+
+    $label = isset( $options[ $current ] ) && $current !== '' ? $options[ $current ] : 'Сортування';
+    ?>
+    <div class="dynex-sort-wrapper">
+        <button class="dynex-sort-btn <?php echo $current ? 'active' : ''; ?>" id="dynexSortBtn">
+            <?php echo esc_html( $label ); ?>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 4L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="dynex-sort-dropdown" id="dynexSortDropdown">
+            <?php foreach ( $options as $value => $label_text ) :
+                if ( $value === '' ) continue; ?>
+                <a href="<?php echo esc_url( add_query_arg( 'dynex_sort', $value ) ); ?>"
+                   class="dynex-sort-item <?php echo $current === $value ? 'is-active' : ''; ?>">
+                    <?php echo esc_html( $label_text ); ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
+}
+
+// Apply sorting to query
+add_action( 'woocommerce_product_query', 'dynex_apply_custom_sorting' );
+function dynex_apply_custom_sorting( $q ) {
+    if ( ! isset( $_GET['dynex_sort'] ) ) return;
+
+    $sort = sanitize_text_field( $_GET['dynex_sort'] );
+
+    switch ( $sort ) {
+        case 'price_asc':
+            $q->set( 'orderby', 'meta_value_num' );
+            $q->set( 'meta_key', '_price' );
+            $q->set( 'order', 'ASC' );
+            break;
+        case 'price_desc':
+            $q->set( 'orderby', 'meta_value_num' );
+            $q->set( 'meta_key', '_price' );
+            $q->set( 'order', 'DESC' );
+            break;
+        case 'date':
+            $q->set( 'orderby', 'date' );
+            $q->set( 'order', 'DESC' );
+            break;
+        case 'sale':
+            $sale_ids = wc_get_product_ids_on_sale();
+            if ( ! empty( $sale_ids ) ) {
+                $q->set( 'post__in', $sale_ids );
+            }
+            break;
+    }
+}

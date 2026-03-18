@@ -161,7 +161,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
   });
 
+// Dynex sort dropdown
+document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('dynexSortBtn');
+    var dropdown = document.getElementById('dynexSortDropdown');
+    if (!btn || !dropdown) return;
 
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        btn.classList.toggle('open');
+        dropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function () {
+        btn.classList.remove('open');
+        dropdown.classList.remove('open');
+    });
+});
 
 
 
