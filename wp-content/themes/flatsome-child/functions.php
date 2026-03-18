@@ -386,3 +386,129 @@ function category_products_swiper() {
   return ob_get_clean();
 }
 add_shortcode( 'category_products_swiper', 'category_products_swiper' );
+
+/**
+ * USD → UAH конвертер цін по бренду
+ */
+
+// ============================================================
+// 1. НАЛАШТУВАННЯ — вкажи назву таксономії брендів
+// ============================================================
+define( 'DYNEX_BRAND_TAXONOMY', 'product_brand' ); // змінити якщо інша
+
+// ============================================================
+// 2. Додаємо поле "Курс USD" на сторінку редагування бренду
+// ============================================================
+add_action( DYNEX_BRAND_TAXONOMY . '_edit_form_fields', 'dynex_brand_usd_rate_field', 10, 2 );
+function dynex_brand_usd_rate_field( $term, $taxonomy ) {
+    $rate = get_term_meta( $term->term_id, 'usd_rate', true );
+    ?>
+    <tr class="form-field">
+        <th scope="row">
+            <label for="usd_rate">Курс USD для цього бренду</label>
+        </th>
+        <td>
+            <input type="number" step="0.01" min="1" name="usd_rate" id="usd_rate"
+                   value="<?php echo esc_attr( $rate ); ?>" style="width:120px;" />
+            <p class="description">
+                Якщо не заповнено — використовується загальний курс із налаштувань магазину.
+            </p>
+        </td>
+    </tr>
+    <?php
+}
+
+// Те саме поле при створенні нового бренду
+add_action( DYNEX_BRAND_TAXONOMY . '_add_form_fields', 'dynex_brand_usd_rate_field_add' );
+function dynex_brand_usd_rate_field_add( $taxonomy ) {
+    ?>
+    <div class="form-field">
+        <label for="usd_rate">Курс USD для цього бренду</label>
+        <input type="number" step="0.01" min="1" name="usd_rate" id="usd_rate" value="" />
+        <p class="description">Якщо не заповнено — використовується загальний курс.</p>
+    </div>
+    <?php
+}
+
+// ============================================================
+// 3. Зберігаємо курс при збереженні бренду
+// ============================================================
+add_action( 'edited_' . DYNEX_BRAND_TAXONOMY, 'dynex_save_brand_usd_rate', 10, 2 );
+add_action( 'created_' . DYNEX_BRAND_TAXONOMY, 'dynex_save_brand_usd_rate', 10, 2 );
+function dynex_save_brand_usd_rate( $term_id, $tt_id ) {
+    if ( isset( $_POST['usd_rate'] ) ) {
+        $rate = floatval( $_POST['usd_rate'] );
+        update_term_meta( $term_id, 'usd_rate', $rate );
+    }
+}
+
+// ============================================================
+// 4. Загальний курс USD в налаштуваннях WooCommerce
+//    WooCommerce → Налаштування → Загальні → внизу
+// ============================================================
+add_filter( 'woocommerce_general_settings', 'dynex_add_default_usd_rate_setting' );
+function dynex_add_default_usd_rate_setting( $settings ) {
+    $new_setting = array(
+        array(
+            'title' => 'Загальний курс USD (грн)',
+            'desc'  => 'Використовується якщо для бренду курс не задано',
+            'id'    => 'dynex_default_usd_rate',
+            'type'  => 'number',
+            'default' => '41',
+            'css'   => 'width:100px;',
+        ),
+    );
+    // Вставляємо перед закриваючим елементом секції
+    array_splice( $settings, count( $settings ) - 1, 0, $new_setting );
+    return $settings;
+}
+
+// ============================================================
+// 5. Хелпер: отримати курс для конкретного товару
+// ============================================================
+function dynex_get_rate_for_product( $product_id ) {
+    $terms = wp_get_post_terms( $product_id, DYNEX_BRAND_TAXONOMY );
+    if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+        foreach ( $terms as $term ) {
+            $rate = get_term_meta( $term->term_id, 'usd_rate', true );
+            if ( $rate > 0 ) {
+                return floatval( $rate );
+            }
+        }
+    }
+    // Fallback — загальний курс
+    $default = get_option( 'dynex_default_usd_rate', 41 );
+    return floatval( $default );
+}
+
+// ============================================================
+// 6. Перераховуємо ціну при виводі (USD → UAH)
+// ============================================================
+add_filter( 'woocommerce_product_get_price', 'dynex_convert_price_to_uah', 10, 2 );
+add_filter( 'woocommerce_product_get_regular_price', 'dynex_convert_price_to_uah', 10, 2 );
+add_filter( 'woocommerce_product_get_sale_price', 'dynex_convert_price_to_uah', 10, 2 );
+add_filter( 'woocommerce_product_variation_get_price', 'dynex_convert_price_to_uah', 10, 2 );
+add_filter( 'woocommerce_product_variation_get_regular_price', 'dynex_convert_price_to_uah', 10, 2 );
+add_filter( 'woocommerce_product_variation_get_sale_price', 'dynex_convert_price_to_uah', 10, 2 );
+
+function dynex_convert_price_to_uah( $price, $product ) {
+    if ( '' === $price || null === $price ) return $price;
+    // Запобігаємо подвійній конвертації в адмінці
+    if ( is_admin() && ! wp_doing_ajax() ) return $price;
+
+    $rate = dynex_get_rate_for_product( $product->get_id() );
+    return round( floatval( $price ) * $rate, 2 );
+}
+
+// ============================================================
+// 7. Для варіативних товарів — діапазон цін
+// ============================================================
+add_filter( 'woocommerce_variation_prices_price', 'dynex_convert_variation_price', 10, 3 );
+add_filter( 'woocommerce_variation_prices_regular_price', 'dynex_convert_variation_price', 10, 3 );
+add_filter( 'woocommerce_variation_prices_sale_price', 'dynex_convert_variation_price', 10, 3 );
+
+function dynex_convert_variation_price( $price, $variation, $product ) {
+    if ( '' === $price ) return $price;
+    $rate = dynex_get_rate_for_product( $product->get_id() );
+    return round( floatval( $price ) * $rate, 2 );
+}
