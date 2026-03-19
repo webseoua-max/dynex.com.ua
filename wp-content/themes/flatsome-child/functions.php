@@ -526,6 +526,7 @@ function dynex_custom_sorting_dropdown() {
         'price_asc'   => 'Від дешевих до дорогих',
         'sale'        => 'Акційні',
         'date'        => 'Нові товари',
+        'in_stock'    => 'В наявності',
     ];
 
     $label = isset( $options[ $current ] ) && $current !== '' ? $options[ $current ] : 'Сортування';
@@ -578,5 +579,21 @@ function dynex_apply_custom_sorting( $q ) {
                 $q->set( 'post__in', $sale_ids );
             }
             break;
+        case 'in_stock':
+            // сортування через posts_clauses
+            break;
     }
+}
+
+// Сортування "В наявності" — товари instock вгорі, outofstock внизу
+add_filter( 'posts_clauses', 'dynex_sort_by_stock_status', 10, 2 );
+function dynex_sort_by_stock_status( $clauses, $query ) {
+    if ( ! isset( $_GET['dynex_sort'] ) || $_GET['dynex_sort'] !== 'in_stock' ) return $clauses;
+    if ( ! $query->is_main_query() ) return $clauses;
+
+    global $wpdb;
+    $clauses['join'] .= " LEFT JOIN {$wpdb->postmeta} AS _stock_meta ON ({$wpdb->posts}.ID = _stock_meta.post_id AND _stock_meta.meta_key = '_stock_status')";
+    $clauses['orderby'] = "FIELD(_stock_meta.meta_value, 'instock', 'onbackorder', 'outofstock'), " . $clauses['orderby'];
+
+    return $clauses;
 }
